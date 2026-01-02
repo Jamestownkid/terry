@@ -51,7 +51,7 @@ export async function render(
     console.log('[render] starting:', outputPath)
 
     // STEP 1: Validate source video and generate temp name
-    let originalVideoPath: string | null = null
+    let originalVideoPath = ''
     if (manifest.sourceVideo) {
       originalVideoPath = manifest.sourceVideo.replace(/^file:\/\//, '')
       if (!fs.existsSync(originalVideoPath)) {
@@ -78,9 +78,9 @@ export async function render(
     bundlePath = await bundle({ entryPoint })
     console.log('[render] bundle created:', bundlePath)
 
-    // STEP 3: Copy video directly INTO the bundle folder!
-    // This is the key - Remotion serves from bundlePath, so video must be there
-    if (originalVideoPath && tempVideoName) {
+      // STEP 3: Copy video directly INTO the bundle folder!
+      // This is the key - Remotion serves from bundlePath, so video must be there
+      if (originalVideoPath.length > 0 && tempVideoName.length > 0) {
       const destPath = path.join(bundlePath, tempVideoName)
       console.log('[render] copying video into bundle:', destPath)
       fs.copyFileSync(originalVideoPath, destPath)
