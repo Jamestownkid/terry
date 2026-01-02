@@ -30,26 +30,28 @@ interface TerryVideoProps {
   }
 }
 
-// CONVERT LOCAL PATHS TO file:// URLS
-// browsers cant read /home/... directly - gotta use file:// protocol
+// FOR OFFTHREADVIDEO - return RAW PATHS, not file:// URLs!
+// OffthreadVideo uses FFmpeg which reads filesystem directly
+// The proxy server REJECTS file:// URLs - only accepts http/https or raw paths
 const toBrowserSrc = (p: string | undefined | null): string => {
   if (!p) return ''
   
-  // already a URL - leave it alone
-  if (/^(https?|file|blob|data):\/\//i.test(p)) return p
+  // already a web URL - leave it alone
+  if (/^(https?|blob|data):\/\//i.test(p)) return p
   
-  // Windows path like C:\Users\...
+  // strip file:// protocol if present - FFmpeg wants raw path
+  if (/^file:\/\//i.test(p)) {
+    return decodeURI(p.replace(/^file:\/\//i, ''))
+  }
+  
+  // Windows path - normalize slashes but keep raw
   if (/^[a-zA-Z]:\\/.test(p)) {
-    const normalized = p.replace(/\\/g, '/')
-    return `file:///${encodeURI(normalized)}`
+    return p.replace(/\\/g, '/')
   }
   
-  // Linux/Mac absolute path like /home/...
-  if (p.startsWith('/')) {
-    return `file://${encodeURI(p)}` // encodes spaces, (), etc.
-  }
-  
-  return p // relative path - let it be
+  // Linux/Mac absolute path - return as-is, FFmpeg can read it
+  // Don't encode or add file:// - just the raw path
+  return p
 }
 
 // effect components
