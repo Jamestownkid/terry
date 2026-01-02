@@ -1,7 +1,8 @@
 // TERRY VIDEO - main video component with effects
-// NOW WITH NULL CHECKS and FILE URL CONVERSION!
+// USES OFFTHREADVIDEO - bypasses Chrome's file:// URL restrictions!
+// OffthreadVideo uses FFmpeg directly instead of Chrome's video player
 import React from 'react'
-import { AbsoluteFill, Sequence, Video, Audio, useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion'
+import { AbsoluteFill, Sequence, OffthreadVideo, Audio, useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion'
 
 interface EditDecision {
   type: string
@@ -222,13 +223,15 @@ export const TerryVideo: React.FC<TerryVideoProps> = ({ manifest }) => {
   
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
-      {/* source video */}
+      {/* source video - using OffthreadVideo which uses FFmpeg directly */}
+      {/* Chrome can't handle file:// URLs properly, but FFmpeg can read any file */}
       {videoSrc && (
         <AbsoluteFill>
-          <Video 
+          <OffthreadVideo 
             src={videoSrc} 
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onError={(e) => console.error('[TerryVideo] Video error:', e)}
+            delayRenderTimeoutInMilliseconds={300000}
+            delayRenderRetries={2}
           />
         </AbsoluteFill>
       )}

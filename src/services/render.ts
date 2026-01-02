@@ -100,7 +100,8 @@ export async function render(
   const composition = await selectComposition({
     serveUrl: bundlePath,
     id: 'TerryVideo',
-    inputProps: { manifest }
+    inputProps: { manifest },
+    timeoutInMilliseconds: 300000,  // 5 minutes for OffthreadVideo FFmpeg extraction
   })
 
   await renderMedia({
@@ -115,8 +116,10 @@ export async function render(
     codec: 'h264',
     outputLocation: outputPath,
     inputProps: { manifest },
-    // TIMEOUT: 2 minutes instead of 28 seconds - gives video time to load
-    timeoutInMilliseconds: 120000,
+    // TIMEOUT: 5 minutes - OffthreadVideo uses FFmpeg which can be slow
+    timeoutInMilliseconds: 300000,
+    // concurrency for faster rendering
+    concurrency: 2,
     // GPU + FILE:// SUPPORT
     chromiumOptions: {
       gl: 'angle-egl',
