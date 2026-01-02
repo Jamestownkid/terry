@@ -75,6 +75,19 @@ export async function render(
   console.log('[render] manifest mode:', manifest.mode)
   console.log('[render] manifest scenes:', manifest.scenes?.length || 0)
 
+  // VALIDATE VIDEO FILE EXISTS before rendering
+  if (manifest.sourceVideo) {
+    const videoPath = manifest.sourceVideo.replace(/^file:\/\//, '')
+    if (!fs.existsSync(videoPath)) {
+      throw new Error(`Video file not found: ${videoPath}`)
+    }
+    const stats = fs.statSync(videoPath)
+    if (stats.size < 1000) {
+      throw new Error(`Video file appears empty or corrupt: ${videoPath}`)
+    }
+    console.log('[render] verified video:', videoPath, Math.round(stats.size / 1024), 'KB')
+  }
+
   // safety defaults
   const fps = manifest.fps || 30
   const duration = manifest.duration || 30
@@ -102,6 +115,8 @@ export async function render(
     codec: 'h264',
     outputLocation: outputPath,
     inputProps: { manifest },
+    // TIMEOUT: 2 minutes instead of 28 seconds - gives video time to load
+    timeoutInMilliseconds: 120000,
     // GPU + FILE:// SUPPORT
     chromiumOptions: {
       gl: 'angle-egl',

@@ -95,12 +95,12 @@ function generateHardCodedManifest(
       start: sceneStart,
       end: sceneEnd,
       text: segText,
-      effects: sceneEffects
+      edits: sceneEffects  // FIXED: was "effects", TerryVideo expects "edits"
     })
   }
   
-  const totalEffects = scenes.reduce((sum, s) => sum + s.effects.length, 0)
-  console.log(`[manifest] created ${scenes.length} scenes with ${totalEffects} total effects`)
+  const actualEditCount = scenes.reduce((sum, s) => sum + (s.edits?.length || 0), 0)
+  console.log(`[manifest] created ${scenes.length} scenes with ${actualEditCount} total edits`)
 
   return {
     mode,
