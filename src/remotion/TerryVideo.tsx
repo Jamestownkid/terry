@@ -1,5 +1,5 @@
 // TERRY VIDEO - main video component with effects
-// NOW WITH NULL CHECKS cause undefined.map() sucks
+// NOW WITH NULL CHECKS and FILE URL CONVERSION!
 import React from 'react'
 import { AbsoluteFill, Sequence, Video, Audio, useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion'
 
@@ -27,6 +27,28 @@ interface TerryVideoProps {
     sourceVideo: string
     scenes: Scene[]
   }
+}
+
+// CONVERT LOCAL PATHS TO file:// URLS
+// browsers cant read /home/... directly - gotta use file:// protocol
+const toBrowserSrc = (p: string | undefined | null): string => {
+  if (!p) return ''
+  
+  // already a URL - leave it alone
+  if (/^(https?|file|blob|data):\/\//i.test(p)) return p
+  
+  // Windows path like C:\Users\...
+  if (/^[a-zA-Z]:\\/.test(p)) {
+    const normalized = p.replace(/\\/g, '/')
+    return `file:///${encodeURI(normalized)}`
+  }
+  
+  // Linux/Mac absolute path like /home/...
+  if (p.startsWith('/')) {
+    return `file://${encodeURI(p)}` // encodes spaces, (), etc.
+  }
+  
+  return p // relative path - let it be
 }
 
 // effect components
@@ -61,8 +83,10 @@ const TextReveal: React.FC<{ text: string; durationInFrames: number }> = ({ text
 const Shake: React.FC<{ intensity?: number; durationInFrames: number }> = ({ intensity = 10, durationInFrames }) => {
   const frame = useCurrentFrame()
   const decay = interpolate(frame, [0, durationInFrames], [1, 0])
-  const x = (Math.random() - 0.5) * intensity * decay
-  const y = (Math.random() - 0.5) * intensity * decay
+  // use frame-based pseudo-random for deterministic rendering
+  const seed = frame * 1234.5678
+  const x = (Math.sin(seed) * intensity * decay)
+  const y = (Math.cos(seed) * intensity * decay)
   return <AbsoluteFill style={{ transform: `translate(${x}px, ${y}px)` }} />
 }
 
@@ -89,7 +113,7 @@ const ColorGrade: React.FC<{ preset?: string; durationInFrames: number }> = ({ p
   return <AbsoluteFill style={{ filter: filters[preset] || filters.cinematic }} />
 }
 
-// SUBTITLE OVERLAY - always shows the transcript
+// SUBTITLE OVERLAY
 const SubtitleOverlay: React.FC<{ text: string }> = ({ text }) => {
   return (
     <AbsoluteFill style={{ 
@@ -169,7 +193,7 @@ const renderEdit = (edit: EditDecision, fps: number, sceneStart: number) => {
       if (edit.props?.file) {
         return (
           <Sequence key={key} from={editStart} durationInFrames={editDuration}>
-            <Audio src={edit.props.file} volume={edit.props.volume || 1} />
+            <Audio src={toBrowserSrc(edit.props.file)} volume={edit.props.volume || 1} />
           </Sequence>
         )
       }
@@ -185,24 +209,32 @@ export const TerryVideo: React.FC<TerryVideoProps> = ({ manifest }) => {
   // SAFETY: default to empty array if scenes is undefined
   const scenes = manifest.scenes || []
   
+  // Convert source video to file:// URL
+  const videoSrc = toBrowserSrc(manifest.sourceVideo)
+  
   console.log('[TerryVideo] rendering:', {
     mode: manifest.mode,
     duration: manifest.duration,
     scenesCount: scenes.length,
-    sourceVideo: manifest.sourceVideo
+    sourceVideo: manifest.sourceVideo,
+    videoSrc: videoSrc
   })
   
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
       {/* source video */}
-      {manifest.sourceVideo && (
+      {videoSrc && (
         <AbsoluteFill>
-          <Video src={manifest.sourceVideo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <Video 
+            src={videoSrc} 
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onError={(e) => console.error('[TerryVideo] Video error:', e)}
+          />
         </AbsoluteFill>
       )}
       
       {/* no video fallback */}
-      {!manifest.sourceVideo && (
+      {!videoSrc && (
         <AbsoluteFill style={{ 
           background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
           display: 'flex',

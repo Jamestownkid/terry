@@ -1,9 +1,10 @@
 // RENDER SERVICE - renders video using remotion
-// simplified for terry - NOW WORKS IN PACKAGED APPS!
+// simplified for terry - NOW WORKS WITH FILE:// URLS!
 
 import { bundle } from '@remotion/bundler'
 import { renderMedia, selectComposition } from '@remotion/renderer'
 import * as path from 'path'
+import * as fs from 'fs'
 import { app } from 'electron'
 
 export interface RenderProgress {
@@ -25,13 +26,17 @@ function getAppPath(): string {
     __dirname,
   ].filter(Boolean) as string[]
   
-  const fs = require('fs')
-  
   for (const p of possible) {
     try {
       const testPath = path.join(p, 'src/remotion/index.ts')
       if (fs.existsSync(testPath)) {
         console.log('[render] found app path:', p)
+        return p
+      }
+      // try tsx
+      const tsxPath = path.join(p, 'src/remotion/index.tsx')
+      if (fs.existsSync(tsxPath)) {
+        console.log('[render] found app path (tsx):', p)
         return p
       }
     } catch {}
@@ -52,10 +57,13 @@ export async function render(
     const appPath = getAppPath()
     
     // try both .ts and .tsx
-    const fs = require('fs')
     let entryPoint = path.join(appPath, 'src/remotion/index.ts')
     if (!fs.existsSync(entryPoint)) {
       entryPoint = path.join(appPath, 'src/remotion/index.tsx')
+    }
+    
+    if (!fs.existsSync(entryPoint)) {
+      throw new Error(`Remotion entry point not found: ${entryPoint}`)
     }
     
     console.log('[render] entry point:', entryPoint)
@@ -94,9 +102,11 @@ export async function render(
     codec: 'h264',
     outputLocation: outputPath,
     inputProps: { manifest },
+    // GPU + FILE:// SUPPORT
     chromiumOptions: {
       gl: 'angle-egl',
-      enableMultiProcessOnLinux: true
+      enableMultiProcessOnLinux: true,
+      disableWebSecurity: true, // CRITICAL: allows file:// video playback
     },
     onProgress: ({ renderedFrames, stitchStage }) => {
       const elapsed = (Date.now() - startTime) / 1000
