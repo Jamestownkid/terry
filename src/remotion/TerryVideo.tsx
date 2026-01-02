@@ -1,4 +1,5 @@
 // TERRY VIDEO - main video component with effects
+// NOW WITH NULL CHECKS cause undefined.map() sucks
 import React from 'react'
 import { AbsoluteFill, Sequence, Video, Audio, useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion'
 
@@ -88,10 +89,36 @@ const ColorGrade: React.FC<{ preset?: string; durationInFrames: number }> = ({ p
   return <AbsoluteFill style={{ filter: filters[preset] || filters.cinematic }} />
 }
 
+// SUBTITLE OVERLAY - always shows the transcript
+const SubtitleOverlay: React.FC<{ text: string }> = ({ text }) => {
+  return (
+    <AbsoluteFill style={{ 
+      display: 'flex', 
+      alignItems: 'flex-end', 
+      justifyContent: 'center',
+      paddingBottom: 60 
+    }}>
+      <div style={{
+        background: 'rgba(0,0,0,0.7)',
+        padding: '12px 24px',
+        borderRadius: 8,
+        maxWidth: '80%'
+      }}>
+        <p style={{ color: 'white', fontSize: 28, margin: 0, textAlign: 'center' }}>
+          {text}
+        </p>
+      </div>
+    </AbsoluteFill>
+  )
+}
+
 // render edit based on type
 const renderEdit = (edit: EditDecision, fps: number, sceneStart: number) => {
   const editStart = Math.round(edit.at * fps) - sceneStart
   const editDuration = Math.round(edit.duration * fps)
+  
+  // safety checks
+  if (editStart < 0 || editDuration <= 0) return null
   
   const key = `${edit.type}-${edit.at}`
   
@@ -101,7 +128,7 @@ const renderEdit = (edit: EditDecision, fps: number, sceneStart: number) => {
     case 'zoom_slow':
       return (
         <Sequence key={key} from={editStart} durationInFrames={editDuration}>
-          <ZoomPulse intensity={edit.props.intensity || 1.15} durationInFrames={editDuration} />
+          <ZoomPulse intensity={edit.props?.intensity || 1.15} durationInFrames={editDuration} />
         </Sequence>
       )
     case 'text_reveal':
@@ -109,14 +136,14 @@ const renderEdit = (edit: EditDecision, fps: number, sceneStart: number) => {
     case 'text_flash':
       return (
         <Sequence key={key} from={editStart} durationInFrames={editDuration}>
-          <TextReveal text={edit.props.text || ''} durationInFrames={editDuration} />
+          <TextReveal text={edit.props?.text || ''} durationInFrames={editDuration} />
         </Sequence>
       )
     case 'shake':
     case 'shake_intense':
       return (
         <Sequence key={key} from={editStart} durationInFrames={editDuration}>
-          <Shake intensity={edit.props.intensity || 10} durationInFrames={editDuration} />
+          <Shake intensity={edit.props?.intensity || 10} durationInFrames={editDuration} />
         </Sequence>
       )
     case 'flash':
@@ -134,12 +161,12 @@ const renderEdit = (edit: EditDecision, fps: number, sceneStart: number) => {
     case 'color_grade':
       return (
         <Sequence key={key} from={editStart} durationInFrames={editDuration}>
-          <ColorGrade preset={edit.props.preset} durationInFrames={editDuration} />
+          <ColorGrade preset={edit.props?.preset} durationInFrames={editDuration} />
         </Sequence>
       )
     case 'sound_hit':
     case 'sound_meme':
-      if (edit.props.file) {
+      if (edit.props?.file) {
         return (
           <Sequence key={key} from={editStart} durationInFrames={editDuration}>
             <Audio src={edit.props.file} volume={edit.props.volume || 1} />
@@ -155,6 +182,16 @@ const renderEdit = (edit: EditDecision, fps: number, sceneStart: number) => {
 export const TerryVideo: React.FC<TerryVideoProps> = ({ manifest }) => {
   const { fps } = useVideoConfig()
   
+  // SAFETY: default to empty array if scenes is undefined
+  const scenes = manifest.scenes || []
+  
+  console.log('[TerryVideo] rendering:', {
+    mode: manifest.mode,
+    duration: manifest.duration,
+    scenesCount: scenes.length,
+    sourceVideo: manifest.sourceVideo
+  })
+  
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
       {/* source video */}
@@ -164,18 +201,54 @@ export const TerryVideo: React.FC<TerryVideoProps> = ({ manifest }) => {
         </AbsoluteFill>
       )}
       
+      {/* no video fallback */}
+      {!manifest.sourceVideo && (
+        <AbsoluteFill style={{ 
+          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div style={{ color: '#666', fontSize: 24 }}>
+            Audio-only mode - No video source
+          </div>
+        </AbsoluteFill>
+      )}
+      
       {/* scenes with edits */}
-      {manifest.scenes.map((scene, i) => {
-        const sceneStart = Math.round(scene.start * fps)
-        const sceneDuration = Math.round((scene.end - scene.start) * fps)
-        
-        return (
-          <Sequence key={i} from={sceneStart} durationInFrames={sceneDuration}>
-            {scene.edits.map((edit) => renderEdit(edit, fps, sceneStart))}
-          </Sequence>
-        )
-      })}
+      {scenes.length > 0 ? (
+        scenes.map((scene, i) => {
+          const sceneStart = Math.round(scene.start * fps)
+          const sceneDuration = Math.round((scene.end - scene.start) * fps)
+          
+          // skip invalid scenes
+          if (sceneDuration <= 0) return null
+          
+          // SAFETY: default edits to empty array
+          const edits = scene.edits || []
+          
+          return (
+            <Sequence key={i} from={sceneStart} durationInFrames={Math.max(1, sceneDuration)}>
+              {/* edits */}
+              {edits.map((edit) => renderEdit(edit, fps, sceneStart))}
+              
+              {/* subtitle if there's text */}
+              {scene.text && <SubtitleOverlay text={scene.text} />}
+            </Sequence>
+          )
+        })
+      ) : (
+        // no scenes - show mode indicator
+        <AbsoluteFill style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <p style={{ color: 'white', fontSize: 32 }}>
+            {manifest.mode?.toUpperCase() || 'TERRY'} MODE
+          </p>
+        </AbsoluteFill>
+      )}
     </AbsoluteFill>
   )
 }
-
