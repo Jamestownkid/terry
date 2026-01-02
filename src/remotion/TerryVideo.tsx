@@ -1,8 +1,9 @@
 // TERRY VIDEO - main video component with effects
-// USES OFFTHREADVIDEO - bypasses Chrome's file:// URL restrictions!
-// OffthreadVideo uses FFmpeg directly instead of Chrome's video player
+// VIDEO IS SERVED OVER HTTP FROM REMOTION'S DEV SERVER!
+// render.ts copies video to public folder, we just reference it by filename
+// OffthreadVideo fetches it from http://localhost:3000/video.mp4
 import React from 'react'
-import { AbsoluteFill, Sequence, OffthreadVideo, Audio, useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion'
+import { AbsoluteFill, Sequence, OffthreadVideo, Audio, useCurrentFrame, useVideoConfig, interpolate, spring, staticFile } from 'remotion'
 
 interface EditDecision {
   type: string
@@ -25,34 +26,12 @@ interface TerryVideoProps {
     fps: number
     width: number
     height: number
-    sourceVideo: string
+    sourceVideo: string  // just the filename like "video_123456_abc.mp4"
     scenes: Scene[]
   }
 }
 
-// FOR OFFTHREADVIDEO - return RAW PATHS, not file:// URLs!
-// OffthreadVideo uses FFmpeg which reads filesystem directly
-// The proxy server REJECTS file:// URLs - only accepts http/https or raw paths
-const toBrowserSrc = (p: string | undefined | null): string => {
-  if (!p) return ''
-  
-  // already a web URL - leave it alone
-  if (/^(https?|blob|data):\/\//i.test(p)) return p
-  
-  // strip file:// protocol if present - FFmpeg wants raw path
-  if (/^file:\/\//i.test(p)) {
-    return decodeURI(p.replace(/^file:\/\//i, ''))
-  }
-  
-  // Windows path - normalize slashes but keep raw
-  if (/^[a-zA-Z]:\\/.test(p)) {
-    return p.replace(/\\/g, '/')
-  }
-  
-  // Linux/Mac absolute path - return as-is, FFmpeg can read it
-  // Don't encode or add file:// - just the raw path
-  return p
-}
+// NO MORE toBrowserSrc! Video is served over HTTP now
 
 // effect components
 const ZoomPulse: React.FC<{ intensity?: number; durationInFrames: number }> = ({ intensity = 1.2, durationInFrames }) => {
@@ -196,7 +175,7 @@ const renderEdit = (edit: EditDecision, fps: number, sceneStart: number) => {
       if (edit.props?.file) {
         return (
           <Sequence key={key} from={editStart} durationInFrames={editDuration}>
-            <Audio src={toBrowserSrc(edit.props.file)} volume={edit.props.volume || 1} />
+            <Audio src={staticFile(edit.props.file)} volume={edit.props.volume || 1} />
           </Sequence>
         )
       }
@@ -212,8 +191,9 @@ export const TerryVideo: React.FC<TerryVideoProps> = ({ manifest }) => {
   // SAFETY: default to empty array if scenes is undefined
   const scenes = manifest.scenes || []
   
-  // Convert source video to file:// URL
-  const videoSrc = toBrowserSrc(manifest.sourceVideo)
+  // VIDEO IS SERVED OVER HTTP! render.ts copies it to public folder
+  // staticFile() builds the correct URL: http://localhost:3000/video_123456_abc.mp4
+  const videoSrc = manifest.sourceVideo ? staticFile(manifest.sourceVideo) : ''
   
   console.log('[TerryVideo] rendering:', {
     mode: manifest.mode,
@@ -225,8 +205,8 @@ export const TerryVideo: React.FC<TerryVideoProps> = ({ manifest }) => {
   
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
-      {/* source video - using OffthreadVideo which uses FFmpeg directly */}
-      {/* Chrome can't handle file:// URLs properly, but FFmpeg can read any file */}
+      {/* source video - served over HTTP from Remotion's dev server */}
+      {/* OffthreadVideo fetches from http://localhost:3000/video.mp4 */}
       {videoSrc && (
         <AbsoluteFill>
           <OffthreadVideo 
