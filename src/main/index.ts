@@ -8,6 +8,7 @@ import Store from 'electron-store'
 import { transcribe, listModels, downloadModel, isModelDownloaded } from '../services/whisper'
 import { generateManifest, VIDEO_MODES } from '../services/claude'
 import { render, RenderProgress } from '../services/render'
+import { needsTranscode, transcodeVideo, isFFmpegInstalled, cleanupCache } from '../services/transcode'
 import { glob } from 'glob'
 
 const store = new Store({
@@ -186,3 +187,21 @@ ipcMain.handle('folder:listMedia', async (_, folderPath: string) => {
     .filter(f => exts.includes(f.split('.').pop()?.toLowerCase() || ''))
     .map(f => path.join(folderPath, f))
 })
+
+// TRANSCODE SERVICE - auto-converts HEVC/MOV to H.264 MP4
+ipcMain.handle('transcode:needsConvert', async (_, filePath: string) => needsTranscode(filePath))
+ipcMain.handle('transcode:isFFmpegInstalled', async () => isFFmpegInstalled())
+ipcMain.handle('transcode:convert', async (_, filePath: string) => {
+  try {
+    mainWindow?.webContents.send('transcode:progress', { percent: 0, stage: 'starting' })
+    const outputPath = await transcodeVideo(filePath, (progress) => {
+      mainWindow?.webContents.send('transcode:progress', progress)
+    })
+    return { success: true, outputPath }
+  } catch (err) {
+    return { success: false, error: String(err), outputPath: filePath }
+  }
+})
+
+// cleanup cache on startup
+cleanupCache()
