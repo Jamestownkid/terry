@@ -1,5 +1,5 @@
 // WHISPER SERVICE - transcribes video/audio
-// supports local whisper.cpp or OpenAI API
+// supports: OpenAI whisper CLI (python), whisper.cpp, or OpenAI API
 
 import * as fs from 'fs'
 import * as path from 'path'
@@ -36,7 +36,6 @@ export interface WhisperModel {
 
 const WHISPER_MODELS = ['tiny', 'base', 'small', 'medium', 'large-v3']
 
-// models dir outside asar
 function getModelsDir(): string {
   const userDataPath = app?.getPath('userData') || path.join(process.env.HOME || '', '.terry')
   const modelsDir = path.join(userDataPath, 'whisper-models')
@@ -70,7 +69,7 @@ export async function downloadModel(
 ): Promise<string> {
   const modelsDir = getModelsDir()
   const modelFile = path.join(modelsDir, `ggml-${model}.bin`)
-  
+
   if (fs.existsSync(modelFile)) return modelFile
 
   const url = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${model}.bin`
@@ -78,88 +77,106 @@ export async function downloadModel(
 
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(modelFile)
-    
-    const download = (url: string) => {
-      https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+
+    const download = (downloadUrl: string) => {
+      https.get(downloadUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
         if (res.statusCode === 301 || res.statusCode === 302) {
           download(res.headers.location!)
           return
         }
-        
+
         const total = parseInt(res.headers['content-length'] || '0', 10)
         let downloaded = 0
-        
+
         res.on('data', (chunk: Buffer) => {
           downloaded += chunk.length
           if (total > 0 && onProgress) onProgress((downloaded / total) * 100)
         })
-        
+
         res.pipe(file)
         file.on('finish', () => { file.close(); resolve(modelFile) })
         file.on('error', (e) => { fs.unlinkSync(modelFile); reject(e) })
-      }).on('error', (e) => { fs.unlinkSync(modelFile); reject(e) })
+      }).on('error', (e) => { if (fs.existsSync(modelFile)) fs.unlinkSync(modelFile); reject(e) })
     }
-    
+
     download(url)
   })
 }
 
-// main transcribe function
-export async function transcribe(
+// Try OpenAI whisper CLI (python)
+async function transcribeWithWhisperCLI(
   filePath: string,
-  model: string = 'medium',
-  onProgress?: (stage: string) => void,
-  openaiKey?: string
+  model: string,
+  onProgress?: (stage: string) => void
 ): Promise<TranscriptResult> {
-  console.log('[whisper] starting:', filePath)
-  
-  // try local first
-  if (isModelDownloaded(model)) {
-    try {
-      return await transcribeLocal(filePath, model, onProgress)
-    } catch (err) {
-      console.warn('[whisper] local failed:', err)
-    }
-  }
+  onProgress?.('transcribing')
 
-  // try OpenAI
-  if (openaiKey) {
-    return await transcribeOpenAI(filePath, openaiKey, onProgress)
-  }
+  const outputDir = path.dirname(filePath)
+  const baseName = path.basename(filePath, path.extname(filePath))
 
-  throw new Error(`Model "${model}" not downloaded. Go to Settings → Download Model.`)
+  return new Promise((resolve, reject) => {
+    const args = [
+      filePath,
+      '--model', model === 'large-v3' ? 'large' : model,
+      '--output_dir', outputDir,
+      '--output_format', 'json',
+      '--language', 'en'
+    ]
+
+    console.log('[whisper] running: whisper', args.join(' '))
+
+    const proc = spawn('whisper', args)
+    let stderr = ''
+
+    proc.stderr.on('data', (d) => { stderr += d.toString(); console.log('[whisper]', d.toString()) })
+    proc.stdout.on('data', (d) => console.log('[whisper]', d.toString()))
+
+    proc.on('close', (code) => {
+      if (code !== 0) return reject(new Error(`whisper failed: ${stderr}`))
+
+      const jsonPath = path.join(outputDir, baseName + '.json')
+      try {
+        if (fs.existsSync(jsonPath)) {
+          resolve(parseJson(JSON.parse(fs.readFileSync(jsonPath, 'utf-8'))))
+        } else {
+          reject(new Error('no output file'))
+        }
+      } catch (e) { reject(e) }
+    })
+
+    proc.on('error', (err) => reject(new Error(`whisper not found: ${err.message}`)))
+  })
 }
 
-async function transcribeLocal(
+// Try whisper.cpp
+async function transcribeWithWhisperCpp(
   filePath: string,
   model: string,
   onProgress?: (stage: string) => void
 ): Promise<TranscriptResult> {
   const modelsDir = getModelsDir()
   const modelFile = path.join(modelsDir, `ggml-${model}.bin`)
-  
-  onProgress?.('checking whisper')
-  
-  const whisperCmd = await findWhisperCmd()
-  if (!whisperCmd) {
-    throw new Error('whisper.cpp not installed. Run: sudo apt install whisper.cpp')
-  }
+
+  if (!fs.existsSync(modelFile)) throw new Error(`Model not downloaded`)
 
   onProgress?.('transcribing')
-  
-  const outDir = path.dirname(filePath)
+
+  const outputDir = path.dirname(filePath)
   const baseName = path.basename(filePath, path.extname(filePath))
-  const outFile = path.join(outDir, baseName)
+  const outFile = path.join(outputDir, baseName)
+
+  const whisperCmd = await findWhisperCppCmd()
+  if (!whisperCmd) throw new Error('whisper.cpp not found')
 
   return new Promise((resolve, reject) => {
-    const args = ['-m', modelFile, '-f', filePath, '-of', outFile, '-oj', '--word-timestamps', '-l', 'auto']
+    const args = ['-m', modelFile, '-f', filePath, '-of', outFile, '-oj', '-l', 'en']
     const proc = spawn(whisperCmd, args)
     let stderr = ''
 
     proc.stderr.on('data', d => stderr += d.toString())
     proc.on('close', (code) => {
-      if (code !== 0) return reject(new Error(`whisper failed: ${stderr}`))
-      
+      if (code !== 0) return reject(new Error(`whisper.cpp failed: ${stderr}`))
+
       const jsonPath = outFile + '.json'
       const srtPath = outFile + '.srt'
 
@@ -169,7 +186,7 @@ async function transcribeLocal(
         } else if (fs.existsSync(srtPath)) {
           resolve(parseSrt(fs.readFileSync(srtPath, 'utf-8')))
         } else {
-          reject(new Error('no whisper output'))
+          reject(new Error('no output'))
         }
       } catch (e) { reject(e) }
     })
@@ -177,13 +194,14 @@ async function transcribeLocal(
   })
 }
 
+// OpenAI API
 async function transcribeOpenAI(
   filePath: string,
   apiKey: string,
   onProgress?: (stage: string) => void
 ): Promise<TranscriptResult> {
   onProgress?.('uploading to OpenAI')
-  
+
   const FormData = (await import('form-data')).default
   const form = new FormData()
   form.append('file', fs.createReadStream(filePath))
@@ -213,14 +231,48 @@ async function transcribeOpenAI(
   })
 }
 
-async function findWhisperCmd(): Promise<string | null> {
-  for (const cmd of ['whisper-cpp', 'whisper', 'main']) {
+async function findWhisperCppCmd(): Promise<string | null> {
+  for (const cmd of ['whisper-cpp', 'whisper.cpp', 'main']) {
     try {
       await new Promise((res, rej) => exec(`which ${cmd}`, e => e ? rej(e) : res(true)))
       return cmd
     } catch { continue }
   }
   return null
+}
+
+// Main transcribe function
+export async function transcribe(
+  filePath: string,
+  model: string = 'small',
+  onProgress?: (stage: string) => void,
+  openaiKey?: string
+): Promise<TranscriptResult> {
+  console.log('[whisper] starting:', filePath)
+  console.log('[whisper] model:', model)
+
+  // Method 1: OpenAI whisper CLI (python)
+  try {
+    return await transcribeWithWhisperCLI(filePath, model, onProgress)
+  } catch (err) {
+    console.warn('[whisper] CLI failed:', err)
+  }
+
+  // Method 2: whisper.cpp
+  if (isModelDownloaded(model)) {
+    try {
+      return await transcribeWithWhisperCpp(filePath, model, onProgress)
+    } catch (err) {
+      console.warn('[whisper] cpp failed:', err)
+    }
+  }
+
+  // Method 3: OpenAI API
+  if (openaiKey) {
+    return await transcribeOpenAI(filePath, openaiKey, onProgress)
+  }
+
+  throw new Error('Transcription failed. Install whisper: pip install openai-whisper')
 }
 
 function parseOpenAI(json: any): TranscriptResult {
@@ -254,7 +306,7 @@ function parseJson(json: any): TranscriptResult {
     segments.push({
       id: i, start: seg.start, end: seg.end,
       text: (seg.text || '').trim(),
-      words: (seg.words || []).map((w: any) => ({ word: w.word, start: w.start, end: w.end }))
+      words: (seg.words || []).map((w: any) => ({ word: w.word || w.text, start: w.start, end: w.end }))
     })
     fullText += (seg.text || '').trim() + ' '
     if (seg.end > maxEnd) maxEnd = seg.end
