@@ -6,16 +6,16 @@ import { Film, Upload, Zap, MonitorPlay, Smartphone, Square, Check } from 'lucid
 import clsx from 'clsx'
 
 const modes = [
-  { id: 'mrbeast', name: 'MrBeast', desc: 'High energy with SFX', hits: '~40/min', gradient: 'mode-mrbeast' },
-  { id: 'lemmino', name: 'LEMMiNO', desc: 'Smooth documentary', hits: '~20/min', gradient: 'mode-lemmino' },
-  { id: 'tiktok', name: 'TikTok', desc: 'Rapid fire edits', hits: '~55/min', gradient: 'mode-tiktok' },
-  { id: 'documentary', name: 'Documentary', desc: 'Classic B-roll', hits: '~15/min', gradient: 'mode-documentary' },
-  { id: 'tutorial', name: 'Tutorial', desc: 'Educational', hits: '~12/min', gradient: 'mode-tutorial' },
-  { id: 'vox', name: 'Vox Explainer', desc: 'Animated text', hits: '~25/min', gradient: 'mode-vox' },
-  { id: 'truecrime', name: 'True Crime', desc: 'Dark & dramatic', hits: '~18/min', gradient: 'mode-truecrime' },
-  { id: 'gaming', name: 'Gaming', desc: 'Fast montage', hits: '~50/min', gradient: 'mode-gaming' },
-  { id: 'podcast', name: 'Podcast', desc: 'Minimal edits', hits: '~8/min', gradient: 'mode-podcast' },
-  { id: 'aesthetic', name: 'Aesthetic', desc: 'Chill vibes', hits: '~10/min', gradient: 'mode-aesthetic' },
+  { id: 'mrbeast', name: 'MrBeast', desc: 'High energy with SFX', hits: '~40/min', icon: '💰', color: 'bg-red-500' },
+  { id: 'lemmino', name: 'LEMMiNO', desc: 'Smooth documentary', hits: '~20/min', icon: '🎬', color: 'bg-blue-600' },
+  { id: 'tiktok', name: 'TikTok', desc: 'Rapid fire edits', hits: '~55/min', icon: '📱', color: 'bg-pink-500' },
+  { id: 'documentary', name: 'Documentary', desc: 'Classic B-roll', hits: '~15/min', icon: '🎥', color: 'bg-amber-600' },
+  { id: 'tutorial', name: 'Tutorial', desc: 'Educational', hits: '~12/min', icon: '📚', color: 'bg-green-600' },
+  { id: 'vox', name: 'Vox Explainer', desc: 'Animated text', hits: '~25/min', icon: '📊', color: 'bg-yellow-500' },
+  { id: 'truecrime', name: 'True Crime', desc: 'Dark & dramatic', hits: '~18/min', icon: '🔍', color: 'bg-gray-700' },
+  { id: 'gaming', name: 'Gaming', desc: 'Fast montage', hits: '~50/min', icon: '🎮', color: 'bg-purple-600' },
+  { id: 'podcast', name: 'Podcast', desc: 'Minimal edits', hits: '~8/min', icon: '🎙️', color: 'bg-orange-500' },
+  { id: 'aesthetic', name: 'Aesthetic', desc: 'Chill vibes', hits: '~10/min', icon: '✨', color: 'bg-indigo-500' },
 ]
 
 const formats = [
@@ -75,8 +75,8 @@ export const HomePage: React.FC<HomePageProps> = ({ selectedMode, onModeSelect, 
                   <Check size={12} className="text-white" />
                 </div>
               )}
-              <div className={`w-10 h-10 rounded-lg ${mode.gradient} flex items-center justify-center mb-3`}>
-                <Film size={20} className="text-white" />
+              <div className={`w-10 h-10 rounded-lg ${mode.color} flex items-center justify-center mb-3 text-xl`}>
+                {mode.icon}
               </div>
               <h3 className="font-semibold text-sm mb-1">{mode.name}</h3>
               <p className="text-xs text-terry-muted mb-2">{mode.desc}</p>

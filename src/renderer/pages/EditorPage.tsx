@@ -1,32 +1,71 @@
 // EDITOR PAGE - the editing workflow
 // transcribe -> generate -> render
 // Shows CLEAR feedback when working
+// NOW SYNCS WITH JOB TRACKER so state persists!!
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { FileVideo, Loader2, CheckCircle, AlertCircle, Play, Download, FolderOpen, RotateCcw } from 'lucide-react'
 import clsx from 'clsx'
+import { JobInfo } from '../components/JobPanel'
 
 interface EditorPageProps {
   sourceFile: string
   mode: string
   onBack: () => void
+  jobId: string
+  job?: JobInfo
+  onUpdateJob: (updates: Partial<JobInfo>) => void
 }
 
 type Status = 'idle' | 'transcribing' | 'generating' | 'rendering' | 'complete' | 'error'
 
-export const EditorPage: React.FC<EditorPageProps> = ({ sourceFile, mode, onBack }) => {
-  const [status, setStatus] = useState<Status>('transcribing') // start immediately
-  const [transcript, setTranscript] = useState<any>(null)
-  const [manifest, setManifest] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [progress, setProgress] = useState(0)
+export const EditorPage: React.FC<EditorPageProps> = ({ 
+  sourceFile, 
+  mode, 
+  onBack, 
+  jobId,
+  job,
+  onUpdateJob 
+}) => {
+  // use job state if available, otherwise local state
+  const [status, setStatusLocal] = useState<Status>(() => job?.status || 'transcribing')
+  const [transcript, setTranscript] = useState<any>(() => job?.transcript || null)
+  const [manifest, setManifest] = useState<any>(() => job?.manifest || null)
+  const [error, setError] = useState<string | null>(() => job?.error || null)
+  const [progress, setProgress] = useState(() => job?.progress || 0)
   const [outputPath, setOutputPath] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('Starting transcription...')
+  
+  // track if we already started transcription
+  const hasStarted = useRef(false)
 
-  // auto-start transcription on mount
+  // sync local status with job
+  const setStatus = (newStatus: Status) => {
+    setStatusLocal(newStatus)
+    onUpdateJob({ status: newStatus as any })
+  }
+
+  // auto-start transcription on mount (only once!)
   useEffect(() => {
-    startTranscription()
-  }, [])
+    // if job already has transcript, don't restart
+    if (job?.transcript) {
+      setTranscript(job.transcript)
+      if (job?.manifest) {
+        setManifest(job.manifest)
+        setStatusLocal('idle')
+      } else {
+        // start generation from existing transcript
+        startGeneration(job.transcript)
+      }
+      return
+    }
+    
+    // only start if we haven't already
+    if (!hasStarted.current) {
+      hasStarted.current = true
+      startTranscription()
+    }
+  }, [jobId])
 
   // progress listener
   useEffect(() => {
@@ -40,6 +79,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({ sourceFile, mode, onBack
   const startTranscription = async () => {
     setStatus('transcribing')
     setError(null)
+    onUpdateJob({ status: 'transcribing', progress: 0, error: undefined })
     setStatusMessage('Transcribing audio with Whisper AI...')
 
     try {
@@ -48,17 +88,21 @@ export const EditorPage: React.FC<EditorPageProps> = ({ sourceFile, mode, onBack
       if (result.success && result.data) {
         setTranscript(result.data)
         setError(null)
+        onUpdateJob({ transcript: result.data, progress: 50 })
         setStatusMessage('Transcription complete!')
         // Auto-start generation
         setTimeout(() => startGeneration(result.data), 500)
       } else {
         setStatus('error')
         setError(result.error || 'Transcription failed')
+        onUpdateJob({ status: 'error', error: result.error || 'Transcription failed' })
         setStatusMessage('Error occurred')
       }
     } catch (err) {
       setStatus('error')
-      setError('Transcription failed: ' + String(err))
+      const errMsg = 'Transcription failed: ' + String(err)
+      setError(errMsg)
+      onUpdateJob({ status: 'error', error: errMsg })
       setStatusMessage('Error occurred')
     }
   }
@@ -66,6 +110,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({ sourceFile, mode, onBack
   const startGeneration = async (transcriptData: any) => {
     setStatus('generating')
     setError(null)
+    onUpdateJob({ status: 'generating', progress: 60 })
     setStatusMessage('AI is creating your edit plan...')
 
     try {
@@ -74,16 +119,20 @@ export const EditorPage: React.FC<EditorPageProps> = ({ sourceFile, mode, onBack
       if (result.success && result.data) {
         setManifest(result.data)
         setError(null)
-        setStatus('idle')
+        setStatusLocal('idle')
+        onUpdateJob({ manifest: result.data, progress: 80 })
         setStatusMessage('Ready to render!')
       } else {
         setStatus('error')
         setError(result.error || 'Generation failed')
+        onUpdateJob({ status: 'error', error: result.error || 'Generation failed' })
         setStatusMessage('Error occurred')
       }
     } catch (err) {
       setStatus('error')
-      setError('Generation failed: ' + String(err))
+      const errMsg = 'Generation failed: ' + String(err)
+      setError(errMsg)
+      onUpdateJob({ status: 'error', error: errMsg })
       setStatusMessage('Error occurred')
     }
   }
@@ -96,6 +145,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({ sourceFile, mode, onBack
 
     setStatus('rendering')
     setProgress(0)
+    onUpdateJob({ status: 'rendering', progress: 0 })
     setStatusMessage('Starting render...')
 
     try {
@@ -104,24 +154,30 @@ export const EditorPage: React.FC<EditorPageProps> = ({ sourceFile, mode, onBack
       if (result.success) {
         setStatus('complete')
         setOutputPath(savePath)
+        onUpdateJob({ status: 'complete', progress: 100 })
         setStatusMessage('Done!')
       } else {
         setStatus('error')
         setError(result.error || 'Render failed')
+        onUpdateJob({ status: 'error', error: result.error || 'Render failed' })
         setStatusMessage('Error occurred')
       }
     } catch (err) {
       setStatus('error')
-      setError('Render failed: ' + String(err))
+      const errMsg = 'Render failed: ' + String(err)
+      setError(errMsg)
+      onUpdateJob({ status: 'error', error: errMsg })
       setStatusMessage('Error occurred')
     }
   }
 
   const retry = () => {
+    hasStarted.current = false
     setTranscript(null)
     setManifest(null)
     setError(null)
     setOutputPath(null)
+    onUpdateJob({ transcript: undefined, manifest: undefined, error: undefined, status: 'transcribing', progress: 0 })
     startTranscription()
   }
 
