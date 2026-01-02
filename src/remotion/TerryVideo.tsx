@@ -191,9 +191,9 @@ export const TerryVideo: React.FC<TerryVideoProps> = ({ manifest }) => {
   // SAFETY: default to empty array if scenes is undefined
   const scenes = manifest.scenes || []
   
-  // VIDEO IS SERVED OVER HTTP! render.ts copies it to public folder
-  // staticFile() builds the correct URL: http://localhost:3000/video_123456_abc.mp4
-  const videoSrc = manifest.sourceVideo ? staticFile(manifest.sourceVideo) : ''
+  // VIDEO IS SERVED OVER HTTP! render.ts copies it to publicDir
+  // Remotion serves publicDir at ROOT, not /public/ - so just use /filename
+  const videoSrc = manifest.sourceVideo ? '/' + manifest.sourceVideo : ''
   
   console.log('[TerryVideo] rendering:', {
     mode: manifest.mode,
