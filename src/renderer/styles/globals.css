@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* TERRY - warm friendly theme */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #faf7f5;
+  color: #2b2d42;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0ebe6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4ccc5;
+  border-radius: 3px;
+}
+
+/* draggable */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+@layer components {
+  .btn {
+    @apply px-5 py-2.5 rounded-xl font-medium transition-all duration-200 flex items-center justify-center gap-2;
+  }
+
+  .btn-primary {
+    @apply btn bg-terry-accent text-white hover:bg-terry-accent-dark active:scale-95 shadow-soft;
+  }
+
+  .btn-secondary {
+    @apply btn bg-white border border-terry-border text-terry-text hover:border-terry-accent hover:text-terry-accent;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-terry-muted hover:bg-white hover:text-terry-text;
+  }
+
+  .card {
+    @apply bg-white border border-terry-border rounded-2xl p-6 shadow-soft;
+  }
+
+  .input {
+    @apply w-full px-4 py-3 bg-white border border-terry-border rounded-xl text-terry-text placeholder-terry-muted focus:outline-none focus:border-terry-accent focus:ring-2 focus:ring-terry-accent/20 transition-all;
+  }
+
+  .drop-zone {
+    @apply border-2 border-dashed border-terry-border rounded-2xl p-16 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all hover:border-terry-accent hover:bg-terry-accent/5;
+  }
+
+  .drop-zone.active {
+    @apply border-terry-accent bg-terry-accent/10;
+  }
+
+  .progress-bar {
+    @apply h-2 bg-terry-border rounded-full overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply h-full bg-terry-accent transition-all duration-300;
+  }
+}
+
+/* mode gradients */
+.mode-lemmino { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+.mode-mrbeast { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.mode-tiktok { background: linear-gradient(135deg, #ec4899, #db2777); }
+.mode-documentary { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.mode-tutorial { background: linear-gradient(135deg, #22c55e, #16a34a); }
+
