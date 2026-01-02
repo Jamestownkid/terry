@@ -44,8 +44,8 @@ export async function render(
   outputPath: string,
   onProgress?: (progress: RenderProgress) => void
 ): Promise<void> {
-  let tempVideoName: string | null = null
-  let bundlePath: string | null = null
+  let tempVideoName: string = ''
+  let bundlePath: string = ''
   
   try {
     console.log('[render] starting:', outputPath)
@@ -136,7 +136,7 @@ export async function render(
     
   } finally {
     // Cleanup: delete video from bundle folder
-    if (bundlePath && tempVideoName) {
+    if (bundlePath && tempVideoName && bundlePath.length > 0 && tempVideoName.length > 0) {
       try {
         const videoInBundle = path.join(bundlePath, tempVideoName)
         if (fs.existsSync(videoInBundle)) {
