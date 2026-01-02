@@ -38,28 +38,41 @@ export const EditorPage: React.FC<EditorPageProps> = ({ sourceFile, mode, onBack
     setStatus('transcribing')
     setError(null)
 
-    const result = await window.api.whisper.transcribe(sourceFile)
-    
-    if (result.success) {
-      setTranscript(result.data)
-      startGeneration(result.data)
-    } else {
+    try {
+      const result = await window.api.whisper.transcribe(sourceFile)
+      
+      if (result.success && result.data) {
+        setTranscript(result.data)
+        setError(null)
+        startGeneration(result.data)
+      } else {
+        setStatus('error')
+        setError(result.error || 'transcription failed')
+      }
+    } catch (err) {
       setStatus('error')
-      setError(result.error || 'transcription failed')
+      setError('Transcription failed: ' + String(err))
     }
   }
 
   const startGeneration = async (transcriptData: any) => {
     setStatus('generating')
+    setError(null)
 
-    const result = await window.api.claude.generate(transcriptData, mode, sourceFile)
-    
-    if (result.success) {
-      setManifest(result.data)
-      setStatus('idle')
-    } else {
+    try {
+      const result = await window.api.claude.generate(transcriptData, mode, sourceFile)
+      
+      if (result.success && result.data) {
+        setManifest(result.data)
+        setError(null)
+        setStatus('idle')
+      } else {
+        setStatus('error')
+        setError(result.error || 'generation failed')
+      }
+    } catch (err) {
       setStatus('error')
-      setError(result.error || 'generation failed')
+      setError('Generation failed: ' + String(err))
     }
   }
 

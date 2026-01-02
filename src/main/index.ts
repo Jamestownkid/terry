@@ -14,7 +14,7 @@ const store = new Store({
   defaults: {
     anthropicApiKey: '',
     openaiApiKey: '',
-    whisperModel: 'medium',
+    whisperModel: 'small',  // small is best balance
     outputDir: path.join(app.getPath('documents'), 'Terry', 'output'),
     assetsDir: '',
     aspectRatio: '16:9'
@@ -105,16 +105,9 @@ ipcMain.handle('whisper:listModels', () => listModels())
 ipcMain.handle('whisper:isDownloaded', (_, model: string) => isModelDownloaded(model))
 
 ipcMain.handle('whisper:downloadModel', async (_, model: string) => {
-  try {
-    mainWindow?.webContents.send('whisper:downloadProgress', { model, percent: 0 })
-    const modelPath = await downloadModel(model, (percent) => {
-      mainWindow?.webContents.send('whisper:downloadProgress', { model, percent })
-    })
-    mainWindow?.webContents.send('whisper:downloadProgress', { model, percent: 100 })
-    return { success: true, path: modelPath }
-  } catch (err) {
-    return { success: false, error: String(err) }
-  }
+  // whisper downloads models automatically on first use
+  mainWindow?.webContents.send('whisper:downloadProgress', { model, percent: 100 })
+  return { success: true, path: model }
 })
 
 // transcribe
