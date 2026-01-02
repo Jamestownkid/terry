@@ -6,17 +6,23 @@ import { Film, Upload, Zap, MonitorPlay, Smartphone, Square, Check } from 'lucid
 import clsx from 'clsx'
 
 const modes = [
-  { id: 'lemmino', name: 'LEMMiNO', desc: 'Smooth documentary style', hits: '~20/min', gradient: 'mode-lemmino' },
   { id: 'mrbeast', name: 'MrBeast', desc: 'High energy with SFX', hits: '~40/min', gradient: 'mode-mrbeast' },
+  { id: 'lemmino', name: 'LEMMiNO', desc: 'Smooth documentary', hits: '~20/min', gradient: 'mode-lemmino' },
   { id: 'tiktok', name: 'TikTok', desc: 'Rapid fire edits', hits: '~55/min', gradient: 'mode-tiktok' },
-  { id: 'documentary', name: 'Documentary', desc: 'Classic B-roll style', hits: '~15/min', gradient: 'mode-documentary' },
-  { id: 'tutorial', name: 'Tutorial', desc: 'Clean educational', hits: '~12/min', gradient: 'mode-tutorial' },
+  { id: 'documentary', name: 'Documentary', desc: 'Classic B-roll', hits: '~15/min', gradient: 'mode-documentary' },
+  { id: 'tutorial', name: 'Tutorial', desc: 'Educational', hits: '~12/min', gradient: 'mode-tutorial' },
+  { id: 'vox', name: 'Vox Explainer', desc: 'Animated text', hits: '~25/min', gradient: 'mode-vox' },
+  { id: 'truecrime', name: 'True Crime', desc: 'Dark & dramatic', hits: '~18/min', gradient: 'mode-truecrime' },
+  { id: 'gaming', name: 'Gaming', desc: 'Fast montage', hits: '~50/min', gradient: 'mode-gaming' },
+  { id: 'podcast', name: 'Podcast', desc: 'Minimal edits', hits: '~8/min', gradient: 'mode-podcast' },
+  { id: 'aesthetic', name: 'Aesthetic', desc: 'Chill vibes', hits: '~10/min', gradient: 'mode-aesthetic' },
 ]
 
 const formats = [
   { id: 'horizontal', icon: MonitorPlay, label: '16:9', desc: 'YouTube' },
-  { id: 'vertical', icon: Smartphone, label: '9:16', desc: 'TikTok' },
+  { id: 'vertical', icon: Smartphone, label: '9:16', desc: 'TikTok/Reels' },
   { id: 'square', icon: Square, label: '1:1', desc: 'Instagram' },
+  { id: 'custom', icon: Square, label: 'Custom', desc: 'You choose' },
 ]
 
 interface HomePageProps {
@@ -54,7 +60,7 @@ export const HomePage: React.FC<HomePageProps> = ({ selectedMode, onModeSelect, 
           </div>
           <h2 className="font-semibold text-lg">Pick a Style</h2>
         </div>
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-5 gap-2">
           {modes.map((mode) => (
             <button
               key={mode.id}

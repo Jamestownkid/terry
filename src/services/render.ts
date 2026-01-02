@@ -4,7 +4,6 @@
 import { bundle } from '@remotion/bundler'
 import { renderMedia, selectComposition } from '@remotion/renderer'
 import * as path from 'path'
-import { EditManifest } from './claude'
 
 export interface RenderProgress {
   percent: number
@@ -17,7 +16,7 @@ export interface RenderProgress {
 let bundlePath: string | null = null
 
 export async function render(
-  manifest: EditManifest,
+  manifest: any,
   outputPath: string,
   onProgress?: (progress: RenderProgress) => void
 ): Promise<void> {

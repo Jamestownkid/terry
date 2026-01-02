@@ -38,23 +38,30 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 overflow-auto">
-        {page === 'home' && (
+        {/* Home page */}
+        <div className={page === 'home' ? '' : 'hidden'}>
           <HomePage
             selectedMode={selectedMode}
             onModeSelect={handleModeSelect}
             onFileSelect={handleFileSelect}
           />
+        </div>
+
+        {/* Editor page - keep mounted to preserve state */}
+        {sourceFile && selectedMode && (
+          <div className={page === 'editor' ? '' : 'hidden'}>
+            <EditorPage
+              sourceFile={sourceFile}
+              mode={selectedMode}
+              onBack={handleBack}
+            />
+          </div>
         )}
-        {page === 'editor' && sourceFile && selectedMode && (
-          <EditorPage
-            sourceFile={sourceFile}
-            mode={selectedMode}
-            onBack={handleBack}
-          />
-        )}
-        {page === 'settings' && (
-          <SettingsPage onBack={() => setPage('home')} />
-        )}
+
+        {/* Settings page */}
+        <div className={page === 'settings' ? '' : 'hidden'}>
+          <SettingsPage onBack={() => setPage(sourceFile ? 'editor' : 'home')} />
+        </div>
       </main>
     </div>
   )

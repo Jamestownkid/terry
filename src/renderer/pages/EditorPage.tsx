@@ -117,6 +117,25 @@ export const EditorPage: React.FC<EditorPageProps> = ({ sourceFile, mode, onBack
         </div>
       </div>
 
+      {/* loading banner when working */}
+      {(status === 'transcribing' || status === 'generating' || status === 'rendering') && (
+        <div className="card mb-8 bg-terry-accent/5 border-terry-accent/30 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-4 border-terry-accent border-t-transparent animate-spin flex-shrink-0" />
+          <div>
+            <p className="font-medium text-terry-accent">
+              {status === 'transcribing' && 'Transcribing with Whisper...'}
+              {status === 'generating' && 'Generating edits with Claude AI...'}
+              {status === 'rendering' && `Rendering video... ${Math.round(progress)}%`}
+            </p>
+            <p className="text-sm text-terry-muted">
+              {status === 'transcribing' && 'This may take 1-5 minutes'}
+              {status === 'generating' && 'This may take 10-30 seconds'}
+              {status === 'rendering' && 'Please wait while your video is being created'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* error */}
       {error && (
         <div className="card mb-8 bg-terry-error/5 border-terry-error/20 flex items-start gap-3">
