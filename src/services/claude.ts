@@ -1,190 +1,183 @@
 // CLAUDE SERVICE - generates edit manifests
-// the "King Kong" connector between SRT and edits
+// SIMPLIFIED to avoid JSON truncation errors
 
 import Anthropic from '@anthropic-ai/sdk'
 
 // 10 video styles
-export const VIDEO_MODES: Record<string, {
-  name: string
-  description: string
-  editFrequency: number
-  overlayDuration: number
-  brollMaxDuration: number
-}> = {
-  lemmino: {
-    name: 'Lemmino / Documentary',
-    description: 'Clean, cinematic with text reveals and subtle motion',
-    editFrequency: 8,
-    overlayDuration: 3,
-    brollMaxDuration: 4
-  },
-  mrbeast: {
-    name: 'MrBeast / High Energy',
-    description: 'Fast cuts, zooms, shakes, lots of text pop-ups',
-    editFrequency: 3,
-    overlayDuration: 1.5,
-    brollMaxDuration: 2
-  },
-  tiktok: {
-    name: 'TikTok / Vertical Short',
-    description: 'Quick cuts, captions, trendy effects',
-    editFrequency: 2,
-    overlayDuration: 1,
-    brollMaxDuration: 2
-  },
-  documentary: {
-    name: 'Documentary / Educational',
-    description: 'Informative with lower thirds, maps, diagrams',
-    editFrequency: 10,
-    overlayDuration: 4,
-    brollMaxDuration: 5
-  },
-  tutorial: {
-    name: 'Tutorial / How-To',
-    description: 'Step markers, highlights, progress bars',
-    editFrequency: 15,
-    overlayDuration: 5,
-    brollMaxDuration: 3
-  },
-  vox: {
-    name: 'Vox Explainer',
-    description: 'Animated text, charts, clean graphics',
-    editFrequency: 6,
-    overlayDuration: 3,
-    brollMaxDuration: 4
-  },
-  truecrime: {
-    name: 'True Crime',
-    description: 'Dark mood, dramatic reveals, timeline markers',
-    editFrequency: 7,
-    overlayDuration: 3,
-    brollMaxDuration: 4
-  },
-  gaming: {
-    name: 'Gaming / Montage',
-    description: 'Fast edits, screen shake, glitch effects',
-    editFrequency: 2,
-    overlayDuration: 1,
-    brollMaxDuration: 2
-  },
-  podcast: {
-    name: 'Podcast / Interview',
-    description: 'Minimal edits, lower thirds for speakers',
-    editFrequency: 20,
-    overlayDuration: 4,
-    brollMaxDuration: 5
-  },
-  aesthetic: {
-    name: 'Aesthetic / Chill',
-    description: 'Slow, smooth transitions, color grading',
-    editFrequency: 12,
-    overlayDuration: 4,
-    brollMaxDuration: 5
-  }
+export const VIDEO_MODES: Record<string, { name: string; description: string }> = {
+  mrbeast: { name: 'MrBeast', description: 'High energy with SFX' },
+  lemmino: { name: 'Lemmino', description: 'Smooth documentary' },
+  tiktok: { name: 'TikTok', description: 'Rapid fire edits' },
+  documentary: { name: 'Documentary', description: 'Classic B-roll' },
+  tutorial: { name: 'Tutorial', description: 'Educational' },
+  vox: { name: 'Vox Explainer', description: 'Animated text' },
+  truecrime: { name: 'True Crime', description: 'Dark dramatic' },
+  gaming: { name: 'Gaming', description: 'Fast montage' },
+  podcast: { name: 'Podcast', description: 'Minimal edits' },
+  aesthetic: { name: 'Aesthetic', description: 'Chill vibes' }
 }
 
+// Generate a simple manifest - NO Claude needed for basic edits
 export async function generateManifest(
   apiKey: string,
   transcript: any,
   mode: string,
   sourceVideo: string,
-  sfxFiles?: string[]
+  _sfxFiles?: string[]
 ): Promise<any> {
-  const client = new Anthropic({ apiKey })
+  console.log('[claude] generating manifest for mode:', mode)
   
-  const modeConfig = VIDEO_MODES[mode] || VIDEO_MODES.documentary
-
-  // Summarize transcript to avoid token limits
-  const segments = transcript.segments.slice(0, 40).map((seg: any) => ({
-    s: Math.round(seg.start),
-    e: Math.round(seg.end),
-    t: seg.text.substring(0, 80)
-  }))
-
-  const prompt = `Generate a video edit manifest for "${modeConfig.name}" style.
-
-DURATION: ${Math.round(transcript.duration)} seconds
-STYLE: ${modeConfig.description}
-
-TRANSCRIPT SEGMENTS:
-${JSON.stringify(segments)}
-
-Respond with ONLY this JSON structure (no markdown):
-{
-  "mode": "${mode}",
-  "duration": ${Math.min(transcript.duration, 60)},
-  "fps": 30,
-  "width": 1920,
-  "height": 1080,
-  "sourceVideo": "${sourceVideo}",
-  "scenes": [
-    {
-      "start": 0,
-      "end": 10,
-      "text": "text here",
-      "effects": [
-        {"type": "zoom", "at": 2, "duration": 1},
-        {"type": "text_overlay", "at": 5, "text": "KEYWORD", "position": "center"}
-      ]
-    }
-  ]
-}
-
-Add effects every ${modeConfig.editFrequency} seconds. Keep response under 1500 characters.`
-
-  console.log('[claude] generating manifest...')
-
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1500,
-    messages: [{ role: 'user', content: prompt }]
-  })
-
-  const content = response.content[0]
-  if (content.type !== 'text') throw new Error('Invalid response')
-
-  let text = content.text.trim()
+  const duration = Math.min(transcript.duration || 60, 120)
   
-  // Clean markdown
-  if (text.startsWith('```')) {
-    text = text.replace(/^```json?\n?/, '').replace(/\n?```$/, '')
+  // If no API key, use local generation
+  if (!apiKey || apiKey.length < 10) {
+    console.log('[claude] no API key, using local generator')
+    return generateLocalManifest(transcript, mode, sourceVideo, duration)
   }
-  
-  // Extract JSON
-  const start = text.indexOf('{')
-  const end = text.lastIndexOf('}')
-  
-  if (start === -1 || end === -1) {
-    console.error('[claude] no JSON in response')
-    return createFallback(transcript, mode, sourceVideo)
-  }
-  
-  text = text.substring(start, end + 1)
-  
+
   try {
-    return JSON.parse(text)
+    const client = new Anthropic({ apiKey })
+    
+    // VERY simple prompt - just ask for edit timestamps
+    const prompt = `Video is ${Math.round(duration)} seconds. Mode: ${mode}.
+Give me 5-10 edit points as JSON array. Just timestamps and effect names.
+ONLY respond with this exact format, nothing else:
+{"edits":[{"t":5,"e":"zoom"},{"t":12,"e":"text"},{"t":20,"e":"cut"}]}`
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 500,  // very small
+      messages: [{ role: 'user', content: prompt }]
+    })
+
+    const content = response.content[0]
+    if (content.type !== 'text') throw new Error('bad response')
+
+    let text = content.text.trim()
+    console.log('[claude] raw response:', text)
+
+    // Extract JSON
+    const start = text.indexOf('{')
+    const end = text.lastIndexOf('}')
+    if (start === -1 || end === -1) throw new Error('no JSON')
+    
+    text = text.substring(start, end + 1)
+    const data = JSON.parse(text)
+    
+    // Convert simple edits to full manifest
+    return buildManifestFromEdits(data.edits || [], transcript, mode, sourceVideo, duration)
+    
   } catch (err) {
-    console.error('[claude] parse error, using fallback')
-    return createFallback(transcript, mode, sourceVideo)
+    console.error('[claude] error:', err)
+    console.log('[claude] using local fallback')
+    return generateLocalManifest(transcript, mode, sourceVideo, duration)
   }
 }
 
-function createFallback(transcript: any, mode: string, sourceVideo: string): any {
-  const scenes = []
-  const duration = Math.min(transcript.duration, 60)
+// Build full manifest from simple edit points
+function buildManifestFromEdits(
+  edits: Array<{t: number, e: string}>,
+  transcript: any,
+  mode: string,
+  sourceVideo: string,
+  duration: number
+): any {
+  const scenes: any[] = []
   
-  for (let t = 0; t < duration; t += 10) {
+  // Create scenes every 10 seconds
+  for (let i = 0; i < duration; i += 10) {
+    const sceneEnd = Math.min(i + 10, duration)
+    const sceneEdits = edits
+      .filter(e => e.t >= i && e.t < sceneEnd)
+      .map(e => ({
+        type: e.e,
+        at: e.t,
+        duration: 1.5
+      }))
+    
+    // Find transcript text for this scene
+    const seg = transcript.segments?.find((s: any) => s.start >= i && s.start < sceneEnd)
+    
     scenes.push({
-      start: t,
-      end: Math.min(t + 10, duration),
-      text: transcript.segments.find((s: any) => s.start >= t)?.text || '',
-      effects: [
-        { type: 'zoom', at: t + 2, duration: 1 },
-        { type: 'text_overlay', at: t + 5, text: 'EDIT', position: 'center' }
-      ]
+      start: i,
+      end: sceneEnd,
+      text: seg?.text || '',
+      effects: sceneEdits.length > 0 ? sceneEdits : [{ type: 'cut', at: i + 5, duration: 1 }]
     })
   }
+
+  return {
+    mode,
+    duration,
+    fps: 30,
+    width: 1920,
+    height: 1080,
+    sourceVideo,
+    scenes
+  }
+}
+
+// Generate manifest locally without Claude
+function generateLocalManifest(
+  transcript: any,
+  mode: string,
+  sourceVideo: string,
+  duration: number
+): any {
+  console.log('[local] generating manifest')
   
+  // Effect frequency based on mode
+  const freq: Record<string, number> = {
+    mrbeast: 3, tiktok: 2, gaming: 2,
+    lemmino: 8, documentary: 10, podcast: 15,
+    tutorial: 12, vox: 6, truecrime: 7, aesthetic: 10
+  }
+  const interval = freq[mode] || 8
+  
+  // Effects to use based on mode
+  const effects: Record<string, string[]> = {
+    mrbeast: ['zoom', 'shake', 'flash', 'text'],
+    tiktok: ['zoom', 'glitch', 'text', 'cut'],
+    gaming: ['shake', 'glitch', 'zoom', 'flash'],
+    lemmino: ['pan', 'fade', 'text'],
+    documentary: ['pan', 'fade', 'lower_third'],
+    podcast: ['cut', 'lower_third'],
+    tutorial: ['highlight', 'text', 'cut'],
+    vox: ['text', 'chart', 'cut'],
+    truecrime: ['fade', 'text', 'dark'],
+    aesthetic: ['fade', 'color', 'pan']
+  }
+  const modeEffects = effects[mode] || ['zoom', 'cut', 'text']
+  
+  const scenes: any[] = []
+  
+  for (let i = 0; i < duration; i += 10) {
+    const sceneEnd = Math.min(i + 10, duration)
+    const sceneEffects: any[] = []
+    
+    // Add effects at intervals
+    for (let t = i; t < sceneEnd; t += interval) {
+      const effectType = modeEffects[Math.floor(Math.random() * modeEffects.length)]
+      sceneEffects.push({
+        type: effectType,
+        at: t + Math.random() * 2,
+        duration: 1 + Math.random()
+      })
+    }
+    
+    // Get transcript text
+    const seg = transcript.segments?.find((s: any) => s.start >= i && s.start < sceneEnd)
+    
+    scenes.push({
+      start: i,
+      end: sceneEnd,
+      text: seg?.text || '',
+      effects: sceneEffects
+    })
+  }
+
+  console.log('[local] created', scenes.length, 'scenes')
+
   return {
     mode,
     duration,
