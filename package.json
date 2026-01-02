@@ -24,6 +24,7 @@
     "@remotion/renderer": "^4.0.250",
     "clsx": "^2.1.0",
     "electron-store": "^8.1.0",
+    "form-data": "^4.0.5",
     "framer-motion": "^11.0.0",
     "glob": "^10.3.10",
     "lucide-react": "^0.330.0",
@@ -56,11 +57,10 @@
       "output": "release"
     },
     "linux": {
-      "target": [
-        "AppImage"
-      ],
+      "target": ["AppImage"],
       "category": "Video",
-      "icon": "assets/icons"
+      "icon": "assets/icons/icon.png",
+      "executableName": "terry"
     },
     "files": [
       "dist/**/*",

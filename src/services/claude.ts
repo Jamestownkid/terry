@@ -4,25 +4,19 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { TranscriptSegment } from './whisper'
 
-// video modes - each has preset effects
-export const VIDEO_MODES = {
+// video modes - each has preset effects (16 total)
+export const VIDEO_MODES: Record<string, {
+  name: string
+  hitsPerMinute: number
+  description: string
+  effects: string[]
+}> = {
+  // DOCUMENTARY STYLES
   lemmino: {
     name: 'LEMMiNO Documentary',
     hitsPerMinute: 20,
     description: 'Smooth, cinematic documentary style with elegant Ken Burns effects',
     effects: ['ken_burns', 'zoom_slow', 'text_reveal', 'vignette', 'color_grade']
-  },
-  mrbeast: {
-    name: 'MrBeast Style',
-    hitsPerMinute: 40,
-    description: 'High energy with lots of zooms, sound effects, and flashy text',
-    effects: ['zoom_pulse', 'shake', 'text_pop', 'flash', 'sound_hit']
-  },
-  tiktok: {
-    name: 'TikTok/Brainrot',
-    hitsPerMinute: 55,
-    description: 'Rapid fire edits, constant movement, meme sounds',
-    effects: ['zoom_rapid', 'shake_intense', 'text_flash', 'sound_meme', 'glitch']
   },
   documentary: {
     name: 'Classic Documentary',
@@ -30,11 +24,97 @@ export const VIDEO_MODES = {
     description: 'Traditional documentary with B-roll and subtle effects',
     effects: ['ken_burns', 'fade', 'subtitle', 'color_grade']
   },
+  vox: {
+    name: 'Vox Explainer',
+    hitsPerMinute: 25,
+    description: 'Educational explainer with animated text and graphics',
+    effects: ['text_reveal', 'zoom_slow', 'highlight', 'progress_bar', 'counter']
+  },
+  'true-crime': {
+    name: 'True Crime',
+    hitsPerMinute: 30,
+    description: 'Dark, suspenseful documentary with dramatic zooms',
+    effects: ['zoom_slow', 'vignette', 'text_reveal', 'sound_hit', 'flash']
+  },
+  
+  // HIGH ENERGY STYLES
+  mrbeast: {
+    name: 'MrBeast Style',
+    hitsPerMinute: 40,
+    description: 'High energy with lots of zooms, sound effects, and flashy text',
+    effects: ['zoom_pulse', 'shake', 'text_pop', 'flash', 'sound_hit', 'counter']
+  },
+  tiktok: {
+    name: 'TikTok/Brainrot',
+    hitsPerMinute: 55,
+    description: 'Rapid fire edits, constant movement, meme sounds',
+    effects: ['zoom_rapid', 'shake_intense', 'text_flash', 'sound_meme', 'glitch']
+  },
+  youtube: {
+    name: 'YouTube Shorts',
+    hitsPerMinute: 45,
+    description: 'Vertical format optimized. Quick cuts, big text, sound effects',
+    effects: ['zoom_pulse', 'text_pop', 'sound_hit', 'flash', 'shake']
+  },
+  gaming: {
+    name: 'Gaming Montage',
+    hitsPerMinute: 50,
+    description: 'Fast paced gaming content with glitch effects and bass drops',
+    effects: ['glitch', 'shake', 'zoom_pulse', 'flash', 'sound_hit', 'chromatic']
+  },
+  
+  // EDUCATIONAL STYLES
   tutorial: {
     name: 'Tutorial',
     hitsPerMinute: 12,
     description: 'Clean, educational style with clear text and highlights',
-    effects: ['text_reveal', 'highlight', 'zoom_slow', 'pointer']
+    effects: ['text_reveal', 'highlight', 'zoom_slow', 'pointer', 'progress_bar']
+  },
+  course: {
+    name: 'Online Course',
+    hitsPerMinute: 8,
+    description: 'Very clean, minimal distractions. Focus on content',
+    effects: ['text_reveal', 'highlight', 'lower_third']
+  },
+  
+  // CINEMATIC STYLES
+  cinematic: {
+    name: 'Cinematic',
+    hitsPerMinute: 18,
+    description: 'Film-like quality with letterboxing and color grading',
+    effects: ['letterbox', 'color_grade', 'ken_burns', 'vignette', 'fade']
+  },
+  trailer: {
+    name: 'Movie Trailer',
+    hitsPerMinute: 35,
+    description: 'Epic trailer vibes with dramatic bass drops and big text',
+    effects: ['flash', 'text_reveal', 'sound_hit', 'zoom_pulse', 'letterbox']
+  },
+  
+  // CHILL STYLES
+  'chill-essay': {
+    name: 'Chill Essay',
+    hitsPerMinute: 15,
+    description: 'Relaxed video essay style with smooth transitions',
+    effects: ['ken_burns', 'fade', 'text_reveal', 'vignette']
+  },
+  podcast: {
+    name: 'Podcast/Interview',
+    hitsPerMinute: 10,
+    description: 'Clean talking head format with lower thirds',
+    effects: ['lower_third', 'zoom_slow', 'subtitle']
+  },
+  aesthetic: {
+    name: 'Aesthetic/ASMR',
+    hitsPerMinute: 8,
+    description: 'Soft, calming vibes with gentle effects',
+    effects: ['ken_burns', 'fade', 'color_grade', 'vignette']
+  },
+  vlog: {
+    name: 'Vlog Style',
+    hitsPerMinute: 22,
+    description: 'Casual vlog feel with quick cuts and text pop-ups',
+    effects: ['zoom_pulse', 'text_pop', 'sound_hit', 'shake']
   }
 }
 
@@ -70,7 +150,7 @@ export async function generateManifest(
   sfxFiles: string[]
 ): Promise<EditManifest> {
   const client = new Anthropic({ apiKey })
-  const modeConfig = VIDEO_MODES[mode as keyof typeof VIDEO_MODES] || VIDEO_MODES.documentary
+  const modeConfig = VIDEO_MODES[mode] || VIDEO_MODES.documentary
 
   const formattedTranscript = transcript.segments
     .map(seg => `[${seg.start.toFixed(1)}s - ${seg.end.toFixed(1)}s] ${seg.text}`)
@@ -140,4 +220,3 @@ Return ONLY JSON:
     scenes: result.scenes || []
   }
 }
-
